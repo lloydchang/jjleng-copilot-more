@@ -21,6 +21,7 @@ app.add_middleware(
 API_URL = "https://api.individual.githubcopilot.com/chat/completions"
 TIMEOUT = ClientTimeout(total=300)
 
+
 def preprocess_request_body(request_body: dict) -> dict:
     """
     Preprocess the request body to handle array content in messages.
@@ -37,7 +38,10 @@ def preprocess_request_body(request_body: dict) -> dict:
 
         for content_item in message["content"]:
             if content_item.get("type") != "text":
-                raise HTTPException(400, "Only text type is supported in content array")
+                raise HTTPException(
+                    400,
+                    "Only text type is supported in content array"
+                )
 
             processed_messages.append({
                 "role": message["role"],
@@ -49,14 +53,19 @@ def preprocess_request_body(request_body: dict) -> dict:
         "messages": processed_messages
     }
 
+
 @app.post("/chat/completions")
 async def proxy_chat_completions(request: Request):
     """
     Proxies chat completion requests with SSE support.
     """
+    # Log request headers
+    logger.info("Request Headers:")
+    for k, v in request.headers.items():
+        logger.info(f"{k}: {v}")
+    
     request_body = await request.json()
-
-    logger.info(f"Received request: {json.dumps(request_body, indent=2)}")
+    logger.info(f"Request Body:\n{json.dumps(request_body, indent=2)}")
 
     try:
         request_body = preprocess_request_body(request_body)
@@ -79,9 +88,15 @@ async def proxy_chat_completions(request: Request):
                         "editor-version": "vscode/1.95.3"
                     },
                 ) as response:
+                    # Log response details
+                    logger.info(f"Response Status: {response.status}")
+                    logger.info("Response Headers:")
+                    for k, v in response.headers.items():
+                        logger.info(f"{k}: {v}")
+
                     if response.status != 200:
                         error_message = await response.text()
-                        logger.error(f"API error: {error_message}")
+                        logger.error(f"Response Body (Error):\n{error_message}")
                         raise HTTPException(
                             response.status,
                             f"API error: {error_message}"
@@ -91,11 +106,17 @@ async def proxy_chat_completions(request: Request):
                         if chunk:
                             yield chunk[0]
 
-        except Exception as e:
-            logger.error(f"Error in stream_response: {str(e)}")
+        # Broad exception to catch all streaming errors
+        except Exception as e:  # noqa: E722  
+            # Log the error and send it in the response
+            error_msg = f"Error in stream_response: {str(e)}"
+            logger.error(error_msg)
             yield json.dumps({"error": str(e)}).encode("utf-8")
 
     return StreamingResponse(
         stream_response(),
         media_type="text/event-stream",
     )
+
+
+
