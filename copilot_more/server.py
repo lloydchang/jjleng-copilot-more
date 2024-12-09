@@ -59,13 +59,17 @@ async def proxy_chat_completions(request: Request):
     """
     Proxies chat completion requests with SSE support.
     """
-    # Log request headers
-    logger.info("Request Headers:")
+    # Log detailed request information
+    logger.info("=== Incoming Request ===")
+    logger.info(f"Method: {request.method}")
+    logger.info(f"URL: {request.url}")
+    logger.info("Headers:")
     for k, v in request.headers.items():
-        logger.info(f"{k}: {v}")
+        logger.info(f"  {k}: {v}")
     
     request_body = await request.json()
-    logger.info(f"Request Body:\n{json.dumps(request_body, indent=2)}")
+    logger.info("Request Body:")
+    logger.info(json.dumps(request_body, indent=2))
 
     try:
         request_body = preprocess_request_body(request_body)
@@ -88,15 +92,14 @@ async def proxy_chat_completions(request: Request):
                         "editor-version": "vscode/1.95.3"
                     },
                 ) as response:
-                    # Print response details
-                    print("\n=== Response Details ===")
-                    print(f"Status Code: {response.status}")
-                    print("\nHeaders:")
+                    # Log response details
+                    logger.info("=== Response Details ===")
+                    logger.info(f"Status Code: {response.status}")
+                    logger.info("Headers:")
                     for k, v in response.headers.items():
-                        print(f"{k}: {v}")
+                        logger.info(f"  {k}: {v}")
                     
-                    print("\nBody:")
-                    print("Streaming chunks:")
+                    logger.info("Starting to stream response body...")
 
                     if response.status != 200:
                         error_message = await response.text()
@@ -109,7 +112,8 @@ async def proxy_chat_completions(request: Request):
 
                     async for chunk in response.content.iter_chunks():
                         if chunk:
-                            print(chunk[0].decode('utf-8'))
+                            chunk_content = chunk[0].decode('utf-8')
+                            logger.debug(f"Streaming chunk: {chunk_content}")
                             yield chunk[0]
 
         # Broad exception to catch all streaming errors
