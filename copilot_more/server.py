@@ -88,22 +88,28 @@ async def proxy_chat_completions(request: Request):
                         "editor-version": "vscode/1.95.3"
                     },
                 ) as response:
-                    # Log response details
-                    logger.info(f"Response Status: {response.status}")
-                    logger.info("Response Headers:")
+                    # Print response details
+                    print("\n=== Response Details ===")
+                    print(f"Status Code: {response.status}")
+                    print("\nHeaders:")
                     for k, v in response.headers.items():
-                        logger.info(f"{k}: {v}")
+                        print(f"{k}: {v}")
+                    
+                    print("\nBody:")
+                    print("Streaming chunks:")
 
                     if response.status != 200:
                         error_message = await response.text()
-                        logger.error(f"Response Body (Error):\n{error_message}")
+                        error_log = f"Response Body (Error):\n{error_message}"
+                        logger.error(error_log)
                         raise HTTPException(
-                            response.status,
-                            f"API error: {error_message}"
+                            status_code=response.status,
+                            detail=f"API error: {error_message}"
                         )
 
                     async for chunk in response.content.iter_chunks():
                         if chunk:
+                            print(chunk[0].decode('utf-8'))
                             yield chunk[0]
 
         # Broad exception to catch all streaming errors
@@ -117,6 +123,4 @@ async def proxy_chat_completions(request: Request):
         stream_response(),
         media_type="text/event-stream",
     )
-
-
 
