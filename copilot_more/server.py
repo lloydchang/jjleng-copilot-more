@@ -6,6 +6,7 @@ import json
 
 from copilot_more.token import get_cached_copilot_token
 from copilot_more.logger import logger
+from copilot_more.http_logger import log_request, log_response_start, log_response_chunk
 
 app = FastAPI()
 
@@ -59,17 +60,8 @@ async def proxy_chat_completions(request: Request):
     """
     Proxies chat completion requests with SSE support.
     """
-    # Log detailed request information
-    logger.info("=== Incoming Request ===")
-    logger.info(f"Method: {request.method}")
-    logger.info(f"URL: {request.url}")
-    logger.info("Headers:")
-    for k, v in request.headers.items():
-        logger.info(f"  {k}: {v}")
-    
     request_body = await request.json()
-    logger.info("Request Body:")
-    logger.info(json.dumps(request_body, indent=2))
+    await log_request(request, request_body)
 
     try:
         request_body = preprocess_request_body(request_body)
@@ -92,13 +84,7 @@ async def proxy_chat_completions(request: Request):
                         "editor-version": "vscode/1.95.3"
                     },
                 ) as response:
-                    # Log response details
-                    logger.info("=== Response Details ===")
-                    logger.info(f"Status Code: {response.status}")
-                    logger.info("Headers:")
-                    for k, v in response.headers.items():
-                        logger.info(f"  {k}: {v}")
-                    
+                    log_response_start(response.status, response.headers)
                     logger.info("Starting to stream response body...")
 
                     if response.status != 200:
@@ -113,14 +99,7 @@ async def proxy_chat_completions(request: Request):
                     async for chunk in response.content.iter_chunks():
                         if chunk:
                             chunk_content = chunk[0].decode('utf-8')
-                            logger.info("=== Streaming Chunk ===")
-                            try:
-                                # Try to parse and pretty print if it's JSON
-                                parsed_chunk = json.loads(chunk_content)
-                                logger.info(json.dumps(parsed_chunk, indent=2))
-                            except json.JSONDecodeError:
-                                # If not JSON, log as plain text
-                                logger.info(f"Raw chunk content: {chunk_content}")
+                            log_response_chunk(chunk_content)
                             yield chunk[0]
 
         # Broad exception to catch all streaming errors
