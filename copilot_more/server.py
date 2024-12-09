@@ -113,7 +113,14 @@ async def proxy_chat_completions(request: Request):
                     async for chunk in response.content.iter_chunks():
                         if chunk:
                             chunk_content = chunk[0].decode('utf-8')
-                            logger.debug(f"Streaming chunk: {chunk_content}")
+                            logger.info("=== Streaming Chunk ===")
+                            try:
+                                # Try to parse and pretty print if it's JSON
+                                parsed_chunk = json.loads(chunk_content)
+                                logger.info(json.dumps(parsed_chunk, indent=2))
+                            except json.JSONDecodeError:
+                                # If not JSON, log as plain text
+                                logger.info(f"Raw chunk content: {chunk_content}")
                             yield chunk[0]
 
         # Broad exception to catch all streaming errors
